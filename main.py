@@ -26,6 +26,7 @@ def main(config):
     celebA_loader = None
     rafd_loader = None
 
+
     if config.dataset in ['CelebA', 'Both']:
         celebA_loader = get_loader(config.celebA_image_path, config.metadata_path, config.celebA_crop_size,
                                    config.image_size, config.batch_size, 'CelebA', config.mode)
@@ -52,9 +53,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model hyper-parameters
-    parser.add_argument('--c_dim', type=int, default=5)
+    parser.add_argument('--c_dim', type=int, default=17)
     parser.add_argument('--c2_dim', type=int, default=8)
-    parser.add_argument('--celebA_crop_size', type=int, default=178)
+    parser.add_argument('--celebA_crop_size', type=int, default=256)
     parser.add_argument('--rafd_crop_size', type=int, default=256)
     parser.add_argument('--image_size', type=int, default=128)
     parser.add_argument('--g_conv_dim', type=int, default=64)
@@ -70,9 +71,9 @@ if __name__ == '__main__':
 
     # Training settings
     parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both'])
-    parser.add_argument('--num_epochs', type=int, default=20)
+    parser.add_argument('--num_epochs', type=int, default=1)
     parser.add_argument('--num_epochs_decay', type=int, default=10)
-    parser.add_argument('--num_iters', type=int, default=200000)
+    parser.add_argument('--num_iters', type=int, default=10)
     parser.add_argument('--num_iters_decay', type=int, default=100000)
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--num_workers', type=int, default=1)
@@ -88,9 +89,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_tensorboard', type=str2bool, default=False)
 
     # Path
-    parser.add_argument('--celebA_image_path', type=str, default='./data/CelebA_nocrop/images')
+    parser.add_argument('--celebA_image_path', type=str, default='./data/aboutyou')
     parser.add_argument('--rafd_image_path', type=str, default='./data/RaFD/train')
-    parser.add_argument('--metadata_path', type=str, default='./data/list_attr_celeba.txt')
+    parser.add_argument('--metadata_path', type=str, default='./data/img_attr_aboutyou.csv')
     parser.add_argument('--log_path', type=str, default='./stargan/logs')
     parser.add_argument('--model_save_path', type=str, default='./stargan/models')
     parser.add_argument('--sample_path', type=str, default='./stargan/samples')

@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from PIL import Image
+import pandas as pd
 
 
 class CelebDataset(Dataset):
@@ -79,6 +80,66 @@ class CelebDataset(Dataset):
         return self.num_data
 
 
+class AboutyouDataset(Dataset):
+    def __init__(self, image_path, metadata_path, transform, mode):
+        self.image_path = image_path
+        self.transform = transform
+        self.mode = mode
+        self.lines = pd.read_csv(metadata_path, sep='\t', encoding='utf-8')
+        self.num_data = self.lines.shape[0]
+        self.attr2idx = {}
+        self.idx2attr = {}
+
+        print ('Start preprocessing dataset..!')
+        random.seed(1234)
+        self.preprocess()
+        print ('Finished preprocessing dataset..!')
+
+        if self.mode == 'train':
+            self.num_data = len(self.train_filenames)
+        elif self.mode == 'test':
+            self.num_data = len(self.test_filenames)
+
+    def preprocess(self):
+        attrs = self.lines.columns[1:]
+        for i, attr in enumerate(attrs):
+            self.attr2idx[attr] = i
+            self.idx2attr[i] = attr
+
+        # self.selected_attrs = self.lines.columns.tolist()
+        attr_ext = ['color', 'category']
+        self.selected_attrs = [attr for attr in attrs if any(ext in attr for ext in attr_ext)]
+        self.train_filenames = []
+        self.train_labels = []
+        self.test_filenames = []
+        self.test_labels = []
+
+        lines = self.lines[['img_path'] + self.selected_attrs]
+        train_set = lines.sample(frac=0.8)
+        test_set = lines.drop(train_set.index)
+
+        self.train_filenames = train_set['img_path'].tolist()
+        self.train_labels = train_set.iloc[:, 1:].as_matrix().tolist()
+
+        self.test_filenames = test_set['img_path'].tolist()
+        self.test_labels = test_set.iloc[:, 1:].as_matrix().tolist()
+
+
+    def __getitem__(self, index):
+        if self.mode == 'train':
+            image = Image.open(self.image_path + self.train_filenames[index])
+            label = self.train_labels[index]
+        elif self.mode in ['test']:
+            image = Image.open(self.image_path + self.train_filenames[index])
+            label = self.test_labels[index]
+
+        return self.transform(image), torch.FloatTensor(label)
+
+    def __len__(self):
+        return self.num_data
+
+
+
 def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, dataset='CelebA', mode='train'):
     """Build and return data loader."""
 
@@ -97,7 +158,7 @@ def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, dat
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
     if dataset == 'CelebA':
-        dataset = CelebDataset(image_path, metadata_path, transform, mode)
+        dataset = AboutyouDataset(image_path, metadata_path, transform, mode)
     elif dataset == 'RaFD':
         dataset = ImageFolder(image_path, transform)
 
