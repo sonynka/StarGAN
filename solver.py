@@ -277,9 +277,9 @@ class Solver(object):
                     accuracies = self.compute_accuracy(out_cls, real_label, self.dataset)
                     log = ["{:.2f}".format(acc) for acc in accuracies.data.cpu().numpy()]
                     if self.dataset == 'CelebA':
-                        print('Classification Acc (Black/Blond/Brown/Gender/Aged): ', end='')
+                        print('Classification Acc (Black/Blond/Brown/Gender/Aged): ')
                     else:
-                        print('Classification Acc (8 emotional expressions): ', end='')
+                        print('Classification Acc (8 emotional expressions): ')
                     print(log)
 
                 # Compute loss with fake images
@@ -504,7 +504,7 @@ class Solver(object):
             if (i+1) % self.log_step == 0:
                 accuracies = self.compute_accuracy(out_cls1, real_label1, 'CelebA')
                 log = ["{:.2f}".format(acc) for acc in accuracies.data.cpu().numpy()]
-                print('Classification Acc (Black/Blond/Brown/Gender/Aged): ', end='')
+                print('Classification Acc (Black/Blond/Brown/Gender/Aged): ')
                 print(log)
                 accuracies = self.compute_accuracy(out_cls2, real_label2, 'RaFD')
                 log = ["{:.2f}".format(acc) for acc in accuracies.data.cpu().numpy()]

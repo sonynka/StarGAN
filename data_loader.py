@@ -127,10 +127,12 @@ class AboutyouDataset(Dataset):
 
     def __getitem__(self, index):
         if self.mode == 'train':
-            image = Image.open(self.image_path + self.train_filenames[index])
+            file_path = u''.join((self.image_path, self.train_filenames[index])).encode('utf-8').strip()
+            image = Image.open(file_path)
             label = self.train_labels[index]
         elif self.mode in ['test']:
-            image = Image.open(self.image_path + self.train_filenames[index])
+            file_path = u''.join((self.image_path, self.test_filenames[index])).encode('utf-8').strip()
+            image = Image.open(file_path)
             label = self.test_labels[index]
 
         return self.transform(image), torch.FloatTensor(label)
