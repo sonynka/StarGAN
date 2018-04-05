@@ -107,14 +107,18 @@ class AboutyouDataset(Dataset):
             self.idx2attr[i] = attr
 
         # self.selected_attrs = self.lines.columns.tolist()
-        attr_ext = ['color', 'category']
-        self.selected_attrs = [attr for attr in attrs if any(ext in attr for ext in attr_ext)]
+        # attr_ext = ['color', 'category']
+        # self.selected_attrs = [attr for attr in attrs if any(ext in attr for ext in attr_ext)]
+
+        self.selected_attrs = ['color_red', 'color_white', 'color_blue', 'category_kleider', 'category_hosen']
         self.train_filenames = []
         self.train_labels = []
         self.test_filenames = []
         self.test_labels = []
 
         lines = self.lines[['img_path'] + self.selected_attrs]
+        # remove images that do not have any of the selected attributes
+        lines = lines[lines[self.selected_attrs].sum(axis=1) > 1]
         train_set = lines.sample(frac=0.8)
         test_set = lines.drop(train_set.index)
 
