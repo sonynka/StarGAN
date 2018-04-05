@@ -3,6 +3,7 @@ import argparse
 from solver import Solver
 from data_loader import get_loader
 from torch.backends import cudnn
+from datetime import datetime
 
 
 def str2bool(v):
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model hyper-parameters
-    parser.add_argument('--c_dim', type=int, default=17)
+    parser.add_argument('--c_dim', type=int, default=5)
     parser.add_argument('--c2_dim', type=int, default=8)
     parser.add_argument('--celebA_crop_size', type=int, default=256)
     parser.add_argument('--rafd_crop_size', type=int, default=256)
@@ -71,36 +72,42 @@ if __name__ == '__main__':
 
     # Training settings
     parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both'])
-    parser.add_argument('--num_epochs', type=int, default=1)
-    parser.add_argument('--num_epochs_decay', type=int, default=10)
-    parser.add_argument('--num_iters', type=int, default=10)
-    parser.add_argument('--num_iters_decay', type=int, default=100000)
+    parser.add_argument('--num_epochs', type=int, default=40)
+    parser.add_argument('--num_epochs_decay', type=int, default=5)
+    parser.add_argument('--num_iters', type=int, default=200000)
+    parser.add_argument('--num_iters_decay', type=int, default=10000)
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.999)
+
+    # pre-trained models
     parser.add_argument('--pretrained_model', type=str, default=None)
+    parser.add_argument('--pretrained_model_path', type=str, default='./stargan/models/')
 
     # Test settings
     parser.add_argument('--test_model', type=str, default='20_1000')
 
     # Misc
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
-    parser.add_argument('--use_tensorboard', type=str2bool, default=False)
+    parser.add_argument('--use_tensorboard', type=str2bool, default=True)
 
     # Path
+    date_string = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    date_path = './stargan/{}'.format(date_string)
+
     parser.add_argument('--celebA_image_path', type=str, default='./data/aboutyou')
     parser.add_argument('--rafd_image_path', type=str, default='./data/RaFD/train')
     parser.add_argument('--metadata_path', type=str, default='./data/img_attr_aboutyou.csv')
-    parser.add_argument('--log_path', type=str, default='./stargan/logs')
-    parser.add_argument('--model_save_path', type=str, default='./stargan/models')
-    parser.add_argument('--sample_path', type=str, default='./stargan/samples')
-    parser.add_argument('--result_path', type=str, default='./stargan/results')
+    parser.add_argument('--log_path', type=str, default='{}/logs'.format(date_path))
+    parser.add_argument('--model_save_path', type=str, default='{}/models'.format(date_path))
+    parser.add_argument('--sample_path', type=str, default='{}/samples'.format(date_path))
+    parser.add_argument('--result_path', type=str, default='{}/results'.format(date_path))
 
     # Step size
-    parser.add_argument('--log_step', type=int, default=10)
-    parser.add_argument('--sample_step', type=int, default=500)
-    parser.add_argument('--model_save_step', type=int, default=1000)
+    parser.add_argument('--log_step', type=int, default=50)
+    parser.add_argument('--sample_step', type=int, default=50)
+    parser.add_argument('--model_save_step', type=int, default=100)
 
     config = parser.parse_args()
     print(config)

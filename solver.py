@@ -49,6 +49,7 @@ class Solver(object):
         self.batch_size = config.batch_size
         self.use_tensorboard = config.use_tensorboard
         self.pretrained_model = config.pretrained_model
+        self.pretrained_model_path = config.pretrained_model_path
 
         # Test settings
         self.test_model = config.test_model
@@ -104,9 +105,9 @@ class Solver(object):
 
     def load_pretrained_model(self):
         self.G.load_state_dict(torch.load(os.path.join(
-            self.model_save_path, '{}_G.pth'.format(self.pretrained_model))))
+            self.pretrained_model_path, '{}_G.pth'.format(self.pretrained_model))))
         self.D.load_state_dict(torch.load(os.path.join(
-            self.model_save_path, '{}_D.pth'.format(self.pretrained_model))))
+            self.pretrained_model_path, '{}_D.pth'.format(self.pretrained_model))))
         print('loaded trained models (step: {})..!'.format(self.pretrained_model))
 
     def build_tensorboard(self):
@@ -180,18 +181,18 @@ class Solver(object):
                     c[i] = 0 if c[i] == 1 else 1   # opposite value
             fixed_c_list.append(self.to_var(fixed_c, volatile=True))
 
-        # multi-attribute transfer (H+G, H+A, G+A, H+G+A)
-        if self.dataset == 'CelebA':
-            for i in range(4):
-                fixed_c = real_c.clone()
-                for c in fixed_c:
-                    if i in [0, 1, 3]:   # Hair color to brown
-                        c[:3] = y[2] 
-                    if i in [0, 2, 3]:   # Gender
-                        c[3] = 0 if c[3] == 1 else 1
-                    if i in [1, 2, 3]:   # Aged
-                        c[4] = 0 if c[4] == 1 else 1
-                fixed_c_list.append(self.to_var(fixed_c, volatile=True))
+        # # multi-attribute transfer (H+G, H+A, G+A, H+G+A)
+        # if self.dataset == 'CelebA':
+        #     for i in range(4):
+        #         fixed_c = real_c.clone()
+        #         for c in fixed_c:
+        #             if i in [0, 1, 3]:   # Hair color to brown
+        #                 c[:3] = y[2]
+        #             if i in [0, 2, 3]:   # Gender
+        #                 c[3] = 0 if c[3] == 1 else 1
+        #             if i in [1, 2, 3]:   # Aged
+        #                 c[4] = 0 if c[4] == 1 else 1
+        #         fixed_c_list.append(self.to_var(fixed_c, volatile=True))
         return fixed_c_list
 
     def train(self):
@@ -277,7 +278,7 @@ class Solver(object):
                     accuracies = self.compute_accuracy(out_cls, real_label, self.dataset)
                     log = ["{:.2f}".format(acc) for acc in accuracies.data.cpu().numpy()]
                     if self.dataset == 'CelebA':
-                        print('Classification Acc (Black/Blond/Brown/Gender/Aged): ')
+                        print('Classification Acc: ')
                     else:
                         print('Classification Acc (8 emotional expressions): ')
                     print(log)
@@ -508,7 +509,7 @@ class Solver(object):
                 print(log)
                 accuracies = self.compute_accuracy(out_cls2, real_label2, 'RaFD')
                 log = ["{:.2f}".format(acc) for acc in accuracies.data.cpu().numpy()]
-                print('Classification Acc (8 emotional expressions): ', end='')
+                print('Classification Acc (8 emotional expressions): ')
                 print(log)
 
             # Fake images (CelebA)
