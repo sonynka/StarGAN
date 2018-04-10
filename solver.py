@@ -166,21 +166,41 @@ class Solver(object):
         elif dataset == 'Both':
             return single attribute changes
         """
-        y = [torch.FloatTensor([1, 0, 0]),  # black hair
-             torch.FloatTensor([0, 1, 0]),  # blond hair
-             torch.FloatTensor([0, 0, 1])]  # brown hair
+
+
+        y = [torch.FloatTensor([1, 0, 0]),
+             torch.FloatTensor([0, 1, 0]),
+             torch.FloatTensor([0, 0, 1]),
+             torch.FloatTensor([1, 0, 0]),
+             torch.FloatTensor([0, 1, 0]),
+             torch.FloatTensor([0, 0, 1]),
+             torch.FloatTensor([1, 0, 0]),
+             torch.FloatTensor([0, 1, 0]),
+             torch.FloatTensor([0, 0, 1])]
 
         fixed_c_list = []
 
-        # single attribute transfer
         for i in range(self.c_dim):
             fixed_c = real_c.clone()
             for c in fixed_c:
                 if i < 3:
                     c[:3] = y[i]
+                elif i < 6:
+                    c[3:6] = y[i]
                 else:
-                    c[i] = 0 if c[i] == 1 else 1   # opposite value
+                    c[6:] = y[i]
+
             fixed_c_list.append(self.to_var(fixed_c, volatile=True))
+
+        # single attribute transfer
+        # for i in range(self.c_dim):
+        #     fixed_c = real_c.clone()
+        #     for c in fixed_c:
+        #         if i < 3:
+        #             c[:3] = y[i]
+        #         else:
+        #             c[i] = 0 if c[i] == 1 else 1   # opposite value
+        #     fixed_c_list.append(self.to_var(fixed_c, volatile=True))
 
         # # multi-attribute transfer (H+G, H+A, G+A, H+G+A)
         # if self.dataset == 'CelebA':

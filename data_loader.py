@@ -110,15 +110,21 @@ class AboutyouDataset(Dataset):
         # attr_ext = ['color', 'category']
         # self.selected_attrs = [attr for attr in attrs if any(ext in attr for ext in attr_ext)]
 
-        self.selected_attrs = ['color_red', 'color_white', 'color_blue', 'category_kleider', 'category_hosen']
+        self.selected_attrs = ['ärmellänge_langarm', 'ärmellänge_viertelarm', 'ärmellänge_ärmellos',
+                               'länge_knielang', 'länge_kurz/mini', 'länge_lang/maxi',
+                               'muster_all-over-muster', 'muster_gepunktet', 'muster_gestreift']
+
+
+        # self.selected_attrs = ['color_red', 'color_white', 'color_blue', 'category_kleider', 'category_hosen']
         self.train_filenames = []
         self.train_labels = []
         self.test_filenames = []
         self.test_labels = []
 
-        lines = self.lines[['img_path'] + self.selected_attrs]
+        lines = self.lines[self.lines['category_kleider'] == 1]
+        lines = lines[['img_path'] + self.selected_attrs]
         # remove images that do not have any of the selected attributes
-        lines = lines[lines[self.selected_attrs].sum(axis=1) > 1]
+        lines = lines[lines[self.selected_attrs].sum(axis=1) >= 3]
         train_set = lines.sample(frac=0.8)
         test_set = lines.drop(train_set.index)
 

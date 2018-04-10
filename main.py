@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     # Path
     date_string = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    date_path = './stargan/{}'.format(date_string)
+    date_path = './stargan/upsampling/'
 
     parser.add_argument('--celebA_image_path', type=str, default='./data/aboutyou')
     parser.add_argument('--rafd_image_path', type=str, default='./data/RaFD/train')
