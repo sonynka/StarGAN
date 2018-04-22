@@ -24,41 +24,26 @@ def main(config):
         os.makedirs(config.result_path)
 
     # Data loader
-    celebA_loader = None
-    rafd_loader = None
-
-
-    if config.dataset in ['CelebA', 'Both']:
-        celebA_loader = get_loader(config.celebA_image_path, config.metadata_path, config.celebA_crop_size,
-                                   config.image_size, config.batch_size, 'CelebA', config.mode)
-    if config.dataset in ['RaFD', 'Both']:
-        rafd_loader = get_loader(config.rafd_image_path, None, config.rafd_crop_size,
-                                 config.image_size, config.batch_size, 'RaFD', config.mode)
+    data_loader = get_loader(config.image_path, config.metadata_path, config.crop_size,
+                                   config.image_size, config.batch_size, config.mode)
 
     # Solver
-    solver = Solver(celebA_loader, rafd_loader, config)
+    solver = Solver(data_loader, config)
 
     if config.mode == 'train':
-        if config.dataset in ['CelebA', 'RaFD']:
-            solver.train()
-        elif config.dataset in ['Both']:
-            solver.train_multi()
+        solver.train()
     elif config.mode == 'test':
-        if config.dataset in ['CelebA', 'RaFD']:
-            solver.test()
-        elif config.dataset in ['Both']:
-            solver.test_multi()
+        solver.test()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model hyper-parameters
-    parser.add_argument('--c_dim', type=int, default=5)
+    parser.add_argument('--c_dim', type=int, default=6)
     parser.add_argument('--c2_dim', type=int, default=8)
-    parser.add_argument('--celebA_crop_size', type=int, default=256)
-    parser.add_argument('--rafd_crop_size', type=int, default=256)
-    parser.add_argument('--image_size', type=int, default=128)
+    parser.add_argument('--crop_size', type=int, default=256)
+    parser.add_argument('--image_size', type=int, default=256)
     parser.add_argument('--g_conv_dim', type=int, default=64)
     parser.add_argument('--d_conv_dim', type=int, default=64)
     parser.add_argument('--g_repeat_num', type=int, default=6)
@@ -71,7 +56,6 @@ if __name__ == '__main__':
     parser.add_argument('--d_train_repeat', type=int, default=5)
 
     # Training settings
-    parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both'])
     parser.add_argument('--num_epochs', type=int, default=40)
     parser.add_argument('--num_epochs_decay', type=int, default=5)
     parser.add_argument('--num_iters', type=int, default=200000)
@@ -93,16 +77,21 @@ if __name__ == '__main__':
     parser.add_argument('--use_tensorboard', type=str2bool, default=True)
 
     # Path
-    date_string = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    date_path = './stargan/upsampling/'
 
-    parser.add_argument('--celebA_image_path', type=str, default='./data/aboutyou')
-    parser.add_argument('--rafd_image_path', type=str, default='./data/RaFD/train')
-    parser.add_argument('--metadata_path', type=str, default='./data/img_attr_aboutyou.csv')
-    parser.add_argument('--log_path', type=str, default='{}/logs'.format(date_path))
-    parser.add_argument('--model_save_path', type=str, default='{}/models'.format(date_path))
-    parser.add_argument('--sample_path', type=str, default='{}/samples'.format(date_path))
-    parser.add_argument('--result_path', type=str, default='{}/results'.format(date_path))
+    parser.add_argument('--image_path', type=str, default='./data/fashion/')
+    parser.add_argument('--metadata_path', type=str, default='./data/fashion/img_attr.csv')
+
+    main_log_path = './stargan/fashion'
+    log_path = '{}/logs'.format(main_log_path)
+    sample_path = '{}/samples'.format(main_log_path)
+    result_path = '{}/results'.format(main_log_path)
+    model_save_path = '{}/models'.format(main_log_path)
+
+    parser.add_argument('--main_log_path', type=str, default=main_log_path)
+    parser.add_argument('--log_path', type=str, default=log_path)
+    parser.add_argument('--model_save_path', type=str, default=model_save_path)
+    parser.add_argument('--sample_path', type=str, default=sample_path)
+    parser.add_argument('--result_path', type=str, default=result_path)
 
     # Step size
     parser.add_argument('--log_step', type=int, default=50)

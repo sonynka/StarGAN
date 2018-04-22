@@ -1,3 +1,5 @@
+# coding=utf-8
+
 import torch
 import os
 import random
@@ -9,78 +11,7 @@ from PIL import Image
 import pandas as pd
 
 
-class CelebDataset(Dataset):
-    def __init__(self, image_path, metadata_path, transform, mode):
-        self.image_path = image_path
-        self.transform = transform
-        self.mode = mode
-        self.lines = open(metadata_path, 'r').readlines()
-        self.num_data = int(self.lines[0])
-        self.attr2idx = {}
-        self.idx2attr = {}
-
-        print ('Start preprocessing dataset..!')
-        random.seed(1234)
-        self.preprocess()
-        print ('Finished preprocessing dataset..!')
-
-        if self.mode == 'train':
-            self.num_data = len(self.train_filenames)
-        elif self.mode == 'test':
-            self.num_data = len(self.test_filenames)
-
-    def preprocess(self):
-        attrs = self.lines[1].split()
-        for i, attr in enumerate(attrs):
-            self.attr2idx[attr] = i
-            self.idx2attr[i] = attr
-
-        self.selected_attrs = ['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young']
-        self.train_filenames = []
-        self.train_labels = []
-        self.test_filenames = []
-        self.test_labels = []
-
-        lines = self.lines[2:]
-        random.shuffle(lines)   # random shuffling
-        for i, line in enumerate(lines):
-
-            splits = line.split()
-            filename = splits[0]
-            values = splits[1:]
-
-            label = []
-            for idx, value in enumerate(values):
-                attr = self.idx2attr[idx]
-
-                if attr in self.selected_attrs:
-                    if value == '1':
-                        label.append(1)
-                    else:
-                        label.append(0)
-
-            if (i+1) < 2000:
-                self.test_filenames.append(filename)
-                self.test_labels.append(label)
-            else:
-                self.train_filenames.append(filename)
-                self.train_labels.append(label)
-
-    def __getitem__(self, index):
-        if self.mode == 'train':
-            image = Image.open(os.path.join(self.image_path, self.train_filenames[index]))
-            label = self.train_labels[index]
-        elif self.mode in ['test']:
-            image = Image.open(os.path.join(self.image_path, self.test_filenames[index]))
-            label = self.test_labels[index]
-
-        return self.transform(image), torch.FloatTensor(label)
-
-    def __len__(self):
-        return self.num_data
-
-
-class AboutyouDataset(Dataset):
+class FashionDataset(Dataset):
     def __init__(self, image_path, metadata_path, transform, mode):
         self.image_path = image_path
         self.transform = transform
@@ -102,20 +33,10 @@ class AboutyouDataset(Dataset):
 
     def preprocess(self):
         attrs = self.lines.columns[1:]
-        for i, attr in enumerate(attrs):
-            self.attr2idx[attr] = i
-            self.idx2attr[i] = attr
 
-        # self.selected_attrs = self.lines.columns.tolist()
-        # attr_ext = ['color', 'category']
-        # self.selected_attrs = [attr for attr in attrs if any(ext in attr for ext in attr_ext)]
+        self.selected_attrs = [u'ärmellänge_langarm', u'ärmellänge_viertelarm', u'ärmellänge_ärmellos',
+                               u'muster_all-over-muster', u'muster_geblümt/floral', u'muster_gestreift']
 
-        self.selected_attrs = ['ärmellänge_langarm', 'ärmellänge_viertelarm', 'ärmellänge_ärmellos',
-                               'länge_knielang', 'länge_kurz/mini', 'länge_lang/maxi',
-                               'muster_all-over-muster', 'muster_gepunktet', 'muster_gestreift']
-
-
-        # self.selected_attrs = ['color_red', 'color_white', 'color_blue', 'category_kleider', 'category_hosen']
         self.train_filenames = []
         self.train_labels = []
         self.test_filenames = []
@@ -123,8 +44,6 @@ class AboutyouDataset(Dataset):
 
         lines = self.lines[self.lines['category_kleider'] == 1]
         lines = lines[['img_path'] + self.selected_attrs]
-        # remove images that do not have any of the selected attributes
-        lines = lines[lines[self.selected_attrs].sum(axis=1) >= 3]
         train_set = lines.sample(frac=0.8)
         test_set = lines.drop(train_set.index)
 
@@ -152,7 +71,7 @@ class AboutyouDataset(Dataset):
 
 
 
-def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, dataset='CelebA', mode='train'):
+def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, mode='train'):
     """Build and return data loader."""
 
     if mode == 'train':
@@ -169,10 +88,7 @@ def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, dat
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    if dataset == 'CelebA':
-        dataset = AboutyouDataset(image_path, metadata_path, transform, mode)
-    elif dataset == 'RaFD':
-        dataset = ImageFolder(image_path, transform)
+    dataset = FashionDataset(image_path, metadata_path, transform, mode)
 
     shuffle = False
     if mode == 'train':
