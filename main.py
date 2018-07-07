@@ -4,6 +4,7 @@ from solver import Solver
 from data_loader import get_loader
 from torch.backends import cudnn
 from datetime import datetime
+from logger import create_logger
 
 
 def str2bool(v):
@@ -13,19 +14,24 @@ def main(config):
     # For fast training
     cudnn.benchmark = True
 
-    # Create directories if not exist
-    if not os.path.exists(config.log_path):
-        os.makedirs(config.log_path)
-    if not os.path.exists(config.model_save_path):
-        os.makedirs(config.model_save_path)
-    if not os.path.exists(config.sample_path):
-        os.makedirs(config.sample_path)
-    if not os.path.exists(config.result_path):
-        os.makedirs(config.result_path)
+    # create logging folders
+    if not os.path.exists(config.output_path):
+        os.makedirs(config.output_path)
+    subfolders = ['logs', 'samples', 'models', 'results']
+    for subfolder in subfolders:
+        subfolder_path = os.path.join(config.output_path, subfolder)
+        if not os.path.exists(subfolder_path):
+            os.makedirs(subfolder_path)
+
+    print_logger = create_logger(os.path.join(
+        config.output_path, 'train{}.log'.format(datetime.now().strftime("%Y%m%d-%H%M%S"))))
+    print_logger.info('============ Initialized logger ============')
+    print_logger.info('\n'.join('%s: %s' % (k, str(v)) for k, v
+                          in sorted(dict(vars(config)).items())))
 
     # Data loader
     data_loader = get_loader(config.image_path, config.metadata_path, config.crop_size,
-                                   config.image_size, config.batch_size, config.mode)
+                            config.image_size, config.batch_size, config.attrs, config.mode)
 
     # Solver
     solver = Solver(data_loader, config)
@@ -40,7 +46,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model hyper-parameters
-    parser.add_argument('--c_dim', type=int, default=6)
+    parser.add_argument('--attrs', type=str, default='*', help='attributes to train on')
+    parser.add_argument('--c_dim', type=int, default=43)
     parser.add_argument('--c2_dim', type=int, default=8)
     parser.add_argument('--crop_size', type=int, default=256)
     parser.add_argument('--image_size', type=int, default=256)
@@ -80,18 +87,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--image_path', type=str, default='./data/fashion/')
     parser.add_argument('--metadata_path', type=str, default='./data/fashion/img_attr.csv')
-
-    main_log_path = './stargan/fashion'
-    log_path = '{}/logs'.format(main_log_path)
-    sample_path = '{}/samples'.format(main_log_path)
-    result_path = '{}/results'.format(main_log_path)
-    model_save_path = '{}/models'.format(main_log_path)
-
-    parser.add_argument('--main_log_path', type=str, default=main_log_path)
-    parser.add_argument('--log_path', type=str, default=log_path)
-    parser.add_argument('--model_save_path', type=str, default=model_save_path)
-    parser.add_argument('--sample_path', type=str, default=sample_path)
-    parser.add_argument('--result_path', type=str, default=result_path)
+    parser.add_argument('--output_path', type=str, default='./stargan/fashion/outputs/')
 
     # Step size
     parser.add_argument('--log_step', type=int, default=50)

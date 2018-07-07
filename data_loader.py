@@ -9,22 +9,24 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from PIL import Image
 import pandas as pd
+from logging import getLogger
 
+logger = getLogger()
 
 class FashionDataset(Dataset):
-    def __init__(self, image_path, metadata_path, transform, mode):
+    def __init__(self, image_path, metadata_path, transform, attributes, mode):
         self.image_path = image_path
         self.transform = transform
         self.mode = mode
-        self.lines = pd.read_csv(metadata_path, sep='\t', encoding='utf-8')
+        self.lines = pd.read_csv(metadata_path, encoding='utf-8')
         self.num_data = self.lines.shape[0]
-        self.attr2idx = {}
-        self.idx2attr = {}
 
-        print ('Start preprocessing dataset..!')
+        self.selected_attrs = [col for col in self.lines.columns
+                               if any(attr in col for attr in attributes.split(','))]
+
+        logger.info('Preprocessing dataset..!')
         random.seed(1234)
         self.preprocess()
-        print ('Finished preprocessing dataset..!')
 
         if self.mode == 'train':
             self.num_data = len(self.train_filenames)
@@ -32,18 +34,13 @@ class FashionDataset(Dataset):
             self.num_data = len(self.test_filenames)
 
     def preprocess(self):
-        attrs = self.lines.columns[1:]
-
-        self.selected_attrs = [u'ärmellänge_langarm', u'ärmellänge_viertelarm', u'ärmellänge_ärmellos',
-                               u'muster_all-over-muster', u'muster_geblümt/floral', u'muster_gestreift']
-
         self.train_filenames = []
         self.train_labels = []
         self.test_filenames = []
         self.test_labels = []
 
-        lines = self.lines[self.lines['category_kleider'] == 1]
-        lines = lines[['img_path'] + self.selected_attrs]
+        lines = self.lines[['img_path'] + self.selected_attrs]
+        lines = lines.loc[(lines[self.selected_attrs]!=0).any(axis=1)]
         train_set = lines.sample(frac=0.8)
         test_set = lines.drop(train_set.index)
 
@@ -52,6 +49,10 @@ class FashionDataset(Dataset):
 
         self.test_filenames = test_set['img_path'].tolist()
         self.test_labels = test_set.iloc[:, 1:].as_matrix().tolist()
+
+        logger.info('{} / {} images with for train / test sets'.format(
+           len(self.train_filenames), len(self.test_filenames)))
+        logger.info('Attributes: {}'.format(self.selected_attrs))
 
 
     def __getitem__(self, index):
@@ -71,7 +72,7 @@ class FashionDataset(Dataset):
 
 
 
-def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, mode='train'):
+def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, attributes, mode='train'):
     """Build and return data loader."""
 
     if mode == 'train':
@@ -88,7 +89,7 @@ def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, mod
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    dataset = FashionDataset(image_path, metadata_path, transform, mode)
+    dataset = FashionDataset(image_path, metadata_path, transform, attributes, mode)
 
     shuffle = False
     if mode == 'train':

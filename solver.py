@@ -12,6 +12,9 @@ from torchvision import transforms
 from model import Generator
 from model import Discriminator
 from PIL import Image
+from logging import getLogger
+
+print_logger = getLogger()
 
 
 class Solver(object):
@@ -19,9 +22,10 @@ class Solver(object):
     def __init__(self, data_loader, config):
         # Data loader
         self.data_loader = data_loader
+        self.attrs = config.attrs
 
         # Model hyper-parameters
-        self.c_dim = config.c_dim
+        self.c_dim = len(data_loader.dataset.selected_attrs)
         self.c2_dim = config.c2_dim
         self.image_size = config.image_size
         self.g_conv_dim = config.g_conv_dim
@@ -53,10 +57,10 @@ class Solver(object):
         self.test_model = config.test_model
 
         # Path
-        self.log_path = config.log_path
-        self.sample_path = config.sample_path
-        self.model_save_path = config.model_save_path
-        self.result_path = config.result_path
+        self.log_path = os.path.join(config.output_path, 'logs') 
+        self.sample_path = os.path.join(config.output_path, 'samples') 
+        self.model_save_path = os.path.join(config.output_path, 'models') 
+        self.result_path = os.path.join(config.output_path, 'results') 
 
         # Step size
         self.log_step = config.log_step
@@ -93,19 +97,17 @@ class Solver(object):
         num_params = 0
         for p in model.parameters():
             num_params += p.numel()
-        print(name)
-        print(model)
-        print("The number of parameters: {}".format(num_params))
+        print_logger.info('{} - {} - Number of parameters: {}'.format(name, model, num_params))
 
     def load_pretrained_model(self):
         self.G.load_state_dict(torch.load(os.path.join(
             self.pretrained_model_path, '{}_G.pth'.format(self.pretrained_model))))
         self.D.load_state_dict(torch.load(os.path.join(
             self.pretrained_model_path, '{}_D.pth'.format(self.pretrained_model))))
-        print('loaded trained models (step: {})..!'.format(self.pretrained_model))
+        print_logger.info('loaded trained models (step: {})..!'.format(self.pretrained_model))
 
     def build_tensorboard(self):
-        from logger import Logger
+        from tensorboard_logger import Logger
         self.logger = Logger(self.log_path)
 
     def update_lr(self, g_lr, d_lr):
@@ -118,10 +120,10 @@ class Solver(object):
         self.g_optimizer.zero_grad()
         self.d_optimizer.zero_grad()
 
-    def to_var(self, x, volatile=False):
+    def to_var(self, x, grad=True):
         if torch.cuda.is_available():
             x = x.cuda()
-        return Variable(x, volatile=volatile)
+        return Variable(x, requires_grad=grad)
 
     def denorm(self, x):
         out = (x + 1) / 2
@@ -150,25 +152,20 @@ class Solver(object):
         """Generate domain labels for dataset for debugging/testing.
         """
 
-
-        y = [torch.FloatTensor([1, 0, 0]),
-             torch.FloatTensor([0, 1, 0]),
-             torch.FloatTensor([0, 0, 1]),
-             torch.FloatTensor([1, 0, 0]),
-             torch.FloatTensor([0, 1, 0]),
-             torch.FloatTensor([0, 0, 1])]
+        y = []
+        for dim in range(self.c_dim):
+            t = [0] * self.c_dim
+            t[dim] = 1
+            y.append(torch.FloatTensor(t))
 
         fixed_c_list = []
 
         for i in range(self.c_dim):
             fixed_c = real_c.clone()
             for c in fixed_c:
-                if i < 3:
-                    c[:3] = y[i]
-                else:
-                    c[3:] = y[i]
+                c[:self.c_dim] = y[i]
 
-            fixed_c_list.append(self.to_var(fixed_c, volatile=True))
+            fixed_c_list.append(self.to_var(fixed_c, grad=False))
 
         return fixed_c_list
 
@@ -183,12 +180,12 @@ class Solver(object):
         for i, (images, labels) in enumerate(self.data_loader):
             fixed_x.append(images)
             real_c.append(labels)
-            if i == 3:
+            if i == 0:
                 break
 
         # Fixed inputs and target domain labels for debugging
         fixed_x = torch.cat(fixed_x, dim=0)
-        fixed_x = self.to_var(fixed_x, volatile=True)
+        fixed_x = self.to_var(fixed_x, grad=False)
         real_c = torch.cat(real_c, dim=0)
 
         fixed_c_list = self.make_data_labels(real_c)
@@ -232,11 +229,11 @@ class Solver(object):
                     out_cls, real_label, size_average=False) / real_x.size(0)
 
                 # Compute classification accuracy of the discriminator
-                if (i+1) % self.log_step == 0:
+                if (i+1) % (self.log_step*10) == 0:
                     accuracies = self.compute_accuracy(out_cls, real_label)
-                    log = ["{:.2f}".format(acc) for acc in accuracies.data.cpu().numpy()]
-                    print('Classification Acc: ')
-                    print(log)
+                    log = ["{}: {:.2f}".format(attr, acc) for (attr, acc) in
+                           zip(self.data_loader.dataset.selected_attrs, accuracies.data.cpu().numpy())]
+                    print_logger.info('Discriminator Accuracy: {}'.format(log))
 
                 # Compute loss with fake images
                 fake_x = self.G(real_x, fake_c)
@@ -274,10 +271,10 @@ class Solver(object):
 
                 # Logging
                 loss = {}
-                loss['D/loss_real'] = d_loss_real.data[0]
-                loss['D/loss_fake'] = d_loss_fake.data[0]
-                loss['D/loss_cls'] = d_loss_cls.data[0]
-                loss['D/loss_gp'] = d_loss_gp.data[0]
+                loss['D/loss_real'] = d_loss_real.data.item()
+                loss['D/loss_fake'] = d_loss_fake.data.item()
+                loss['D/loss_cls'] = d_loss_cls.data.item()
+                loss['D/loss_gp'] = d_loss_gp.data.item()
 
                 # ================== Train G ================== #
                 if (i+1) % self.d_train_repeat == 0:
@@ -301,9 +298,9 @@ class Solver(object):
                     self.g_optimizer.step()
 
                     # Logging
-                    loss['G/loss_fake'] = g_loss_fake.data[0]
-                    loss['G/loss_rec'] = g_loss_rec.data[0]
-                    loss['G/loss_cls'] = g_loss_cls.data[0]
+                    loss['G/loss_fake'] = g_loss_fake.data.item()
+                    loss['G/loss_rec'] = g_loss_rec.data.item()
+                    loss['G/loss_cls'] = g_loss_cls.data.item()
 
                 # Print out log info
                 if (i+1) % self.log_step == 0:
@@ -315,7 +312,7 @@ class Solver(object):
 
                     for tag, value in loss.items():
                         log += ", {}: {:.4f}".format(tag, value)
-                    print(log)
+                    print_logger.info(log)
 
                     if self.use_tensorboard:
                         for tag, value in loss.items():
@@ -329,7 +326,7 @@ class Solver(object):
                     fake_images = torch.cat(fake_image_list, dim=3)
                     save_image(self.denorm(fake_images.data.cpu()),
                         os.path.join(self.sample_path, '{}_{}_fake.png'.format(e+1, i+1)),nrow=1, padding=0)
-                    print('Translated images and saved into {}..!'.format(self.sample_path))
+                    print_logger.info('Translated images and saved into {}..!'.format(self.sample_path))
 
                 # Save model checkpoints
                 if (i+1) % self.model_save_step == 0:
@@ -343,7 +340,7 @@ class Solver(object):
                 g_lr -= (self.g_lr / float(self.num_epochs_decay))
                 d_lr -= (self.d_lr / float(self.num_epochs_decay))
                 self.update_lr(g_lr, d_lr)
-                print ('Decay learning rate to g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
+                print_logger.info('Decay learning rate to g_lr: {}, d_lr: {}.'.format(g_lr, d_lr))
 
     def test(self):
         """Facial attribute transfer on CelebA or facial expression synthesis on RaFD."""
@@ -355,15 +352,8 @@ class Solver(object):
         data_loader = self.data_loader
 
         for i, (real_x, org_c) in enumerate(data_loader):
-            real_x = self.to_var(real_x, volatile=True)
-
-            if self.dataset == 'CelebA':
-                target_c_list = self.make_data_labels(org_c)
-            else:
-                target_c_list = []
-                for j in range(self.c_dim):
-                    target_c = self.one_hot(torch.ones(real_x.size(0)) * j, self.c_dim)
-                    target_c_list.append(self.to_var(target_c, volatile=True))
+            real_x = self.to_var(real_x, grad=False)
+            target_c_list = self.make_data_labels(org_c)
 
             # Start translations
             fake_image_list = [real_x]
@@ -372,4 +362,4 @@ class Solver(object):
             fake_images = torch.cat(fake_image_list, dim=3)
             save_path = os.path.join(self.result_path, '{}_fake.png'.format(i+1))
             save_image(self.denorm(fake_images.data), save_path, nrow=1, padding=0)
-            print('Translated test images and saved into "{}"..!'.format(save_path))
+            print_logger.info('Translated test images and saved into "{}"..!'.format(save_path))
