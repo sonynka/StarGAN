@@ -25,7 +25,7 @@ class Solver(object):
         self.attrs = config.attrs
 
         # Model hyper-parameters
-        self.c_dim = len(data_loaders['train'].dataset.selected_attrs)
+        self.c_dim = len(data_loaders['train'].dataset.class_names)
         self.c2_dim = config.c2_dim
         self.image_size = config.image_size
         self.g_conv_dim = config.g_conv_dim
@@ -179,11 +179,12 @@ class Solver(object):
 
         fixed_x = []
         real_c = []
-        for i, (images, labels) in enumerate(data_loader):
-            fixed_x.append(images)
-            real_c.append(labels)
-            if i == 0:
-                break
+
+        num_fixed_imgs = 10
+        for i in range(num_fixed_imgs):
+            images, labels = self.data_loaders['val'].dataset.__getitem__(i)
+            fixed_x.append(images.unsqueeze(0))
+            real_c.append(labels.unsqueeze(0))
 
         # Fixed inputs and target domain labels for debugging
         fixed_x = torch.cat(fixed_x, dim=0)
@@ -234,7 +235,7 @@ class Solver(object):
                 if (i+1) % (self.log_step*10) == 0:
                     accuracies = self.compute_accuracy(out_cls, real_label)
                     log = ["{}: {:.2f}".format(attr, acc) for (attr, acc) in
-                           zip(data_loader.dataset.selected_attrs, accuracies.data.cpu().numpy())]
+                           zip(data_loader.dataset.class_names, accuracies.data.cpu().numpy())]
                     print_logger.info('Discriminator Accuracy: {}'.format(log))
 
                 # Compute loss with fake images
@@ -293,6 +294,9 @@ class Solver(object):
                     g_loss_cls = F.binary_cross_entropy_with_logits(
                         out_cls, fake_label, size_average=False) / fake_x.size(0)
 
+                    del fake_x
+                    del rec_x
+
                     # Backward + Optimize
                     g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
                     self.reset_grad()
@@ -323,12 +327,29 @@ class Solver(object):
                 # Translate fixed images for debugging
                 if (i+1) % self.sample_step == 0:
                     fake_image_list = [fixed_x]
+
                     for fixed_c in fixed_c_list:
-                        fake_image_list.append(self.G(fixed_x, fixed_c))
+                        gen_imgs = self.G(fixed_x, fixed_c)
+                        # if self.use_tensorboard:
+                        #     c_idx = fixed_c[0].argmax().item()
+                        #     class_name = data_loader.dataset.class_names[c_idx]
+                        #     self.logger.image_summary(
+                        #         class_name, torch.cat(torch.unbind(gen_imgs), dim=3), e * iters_per_epoch + i + 1)
+                        fake_image_list.append(gen_imgs)
+
                     fake_images = torch.cat(fake_image_list, dim=3)
                     save_image(self.denorm(fake_images.data.cpu()),
                         os.path.join(self.sample_path, '{}_{}_fake.png'.format(e+1, i+1)),nrow=1, padding=0)
                     print_logger.info('Translated images and saved into {}..!'.format(self.sample_path))
+
+                    if self.use_tensorboard:
+                        a = [t.unsqueeze(0) for t in fake_image_list]
+                        a = torch.cat(a)
+                        a = a.permute(1, 0, 2, 3, 4)
+                        l = torch.unbind(a, dim=0)
+                        l = [torch.cat(torch.unbind(t, dim=0), dim=2) for t in l]
+
+                        self.logger.image_summary('a', l, e * iters_per_epoch + i + 1)
 
                 # Save model checkpoints
                 if (i+1) % self.model_save_step == 0:

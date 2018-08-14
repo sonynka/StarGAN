@@ -1,7 +1,9 @@
 # Code referenced from https://gist.github.com/gyglim/1f8dfb1b5c82627ae3efcfbbadb9f514
 import tensorflow as tf
 import numpy as np
-import scipy.misc 
+import scipy.misc
+from torchvision.utils import make_grid
+
 try:
     from StringIO import StringIO  # Python 2.7
 except ImportError:
@@ -22,6 +24,7 @@ class Logger(object):
     def image_summary(self, tag, images, step):
         """Log a list of images."""
 
+
         img_summaries = []
         for i, img in enumerate(images):
             # Write the image to a string
@@ -29,6 +32,9 @@ class Logger(object):
                 s = StringIO()
             except:
                 s = BytesIO()
+
+            grid = make_grid(img, nrow=1)
+            img = grid.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()
             scipy.misc.toimage(img).save(s, format="png")
 
             # Create an Image object

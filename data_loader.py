@@ -32,8 +32,6 @@ class FashionDataset(Dataset):
             self.num_data = len(self.train_filenames)
         elif self.mode == 'test':
             self.num_data = len(self.test_filenames)
-        elif self.mode == 'valid':
-            self.num_data = len(self.valid_filenames)
 
     def preprocess(self):
         self.train_filenames = []
@@ -103,7 +101,7 @@ class ImageLabelFilelist(Dataset):
         imlist = flist_reader(os.path.join(self.root, flist_path))
 
         labels_df = self.process_labels(attributes, imlist)
-        self.imlist = labels_df[['img_path']].tolist()
+        self.imlist = labels_df.img_path.tolist()
         self.class_names = labels_df.columns[1:]
         self.labels = labels_df.iloc[:, 1:].as_matrix().tolist()
 
@@ -160,9 +158,14 @@ def get_loaders(root, attributes, image_size, batch_size):
     data_loaders = {
         mode: DataLoader(image_datasets[mode],
                          batch_size=batch_size,
-                         shuffle=False if mode == 'test' else True,
+                         shuffle=True if mode == 'train' else False,
                          num_workers=4)
         for mode in modes
     }
+
+    logger.info('{train} / {test} / {val} images for train / val / test sets'\
+                .format(**{mode: len(image_datasets[mode]) for mode in modes}))
+    logger.info('Classes: {}'.format(image_datasets['train'].class_names))
+
 
     return data_loaders
