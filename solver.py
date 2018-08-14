@@ -67,6 +67,8 @@ class Solver(object):
         self.sample_step = config.sample_step
         self.model_save_step = config.model_save_step
 
+        self.num_val_imgs = config.num_val_imgs
+
         # Build tensorboard if use
         self.build_model()
         if self.use_tensorboard:
@@ -180,7 +182,7 @@ class Solver(object):
         fixed_x = []
         real_c = []
 
-        num_fixed_imgs = 10
+        num_fixed_imgs = self.num_val_imgs
         for i in range(num_fixed_imgs):
             images, labels = self.data_loaders['val'].dataset.__getitem__(i)
             fixed_x.append(images.unsqueeze(0))
@@ -294,9 +296,6 @@ class Solver(object):
                     g_loss_cls = F.binary_cross_entropy_with_logits(
                         out_cls, fake_label, size_average=False) / fake_x.size(0)
 
-                    del fake_x
-                    del rec_x
-
                     # Backward + Optimize
                     g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
                     self.reset_grad()
@@ -330,26 +329,21 @@ class Solver(object):
 
                     for fixed_c in fixed_c_list:
                         gen_imgs = self.G(fixed_x, fixed_c)
-                        # if self.use_tensorboard:
-                        #     c_idx = fixed_c[0].argmax().item()
-                        #     class_name = data_loader.dataset.class_names[c_idx]
-                        #     self.logger.image_summary(
-                        #         class_name, torch.cat(torch.unbind(gen_imgs), dim=3), e * iters_per_epoch + i + 1)
                         fake_image_list.append(gen_imgs)
 
-                    fake_images = torch.cat(fake_image_list, dim=3)
-                    save_image(self.denorm(fake_images.data.cpu()),
-                        os.path.join(self.sample_path, '{}_{}_fake.png'.format(e+1, i+1)),nrow=1, padding=0)
+                    # fake_images = torch.cat(fake_image_list, dim=3)
+                    # save_image(self.denorm(fake_images.data.cpu()),
+                    #     os.path.join(self.sample_path, '{}_{}_fake.png'.format(e+1, i+1)),nrow=1, padding=0)
                     print_logger.info('Translated images and saved into {}..!'.format(self.sample_path))
 
                     if self.use_tensorboard:
-                        a = [t.unsqueeze(0) for t in fake_image_list]
-                        a = torch.cat(a)
-                        a = a.permute(1, 0, 2, 3, 4)
-                        l = torch.unbind(a, dim=0)
-                        l = [torch.cat(torch.unbind(t, dim=0), dim=2) for t in l]
+                        tb_imgs = [t.unsqueeze(0) for t in fake_image_list]
+                        tb_imgs = torch.cat(tb_imgs)
+                        tb_imgs = tb_imgs.permute(1, 0, 2, 3, 4)
+                        tb_imgs_list = torch.unbind(tb_imgs, dim=0)
+                        tb_imgs_list = [torch.cat(torch.unbind(t, dim=0), dim=2) for t in tb_imgs_list]
 
-                        self.logger.image_summary('a', l, e * iters_per_epoch + i + 1)
+                        self.logger.image_summary('fixed_imgs', tb_imgs_list, e * iters_per_epoch + i + 1)
 
                 # Save model checkpoints
                 if (i+1) % self.model_save_step == 0:

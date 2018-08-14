@@ -90,6 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--root', type=str, default='./data/fashion/')
     parser.add_argument('--metadata_path', type=str, default='./data/fashion/img_attr.csv')
     parser.add_argument('--output_path', type=str, default='./stargan/fashion/outputs/')
+    parser.add_argument('--num_val_imgs', type=int, default=10)
 
     # Step size
     parser.add_argument('--log_step', type=int, default=50)
