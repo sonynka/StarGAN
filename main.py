@@ -1,7 +1,7 @@
 import os
 import argparse
 from solver import Solver
-from data_loader import get_loader
+from data_loader import get_loaders
 from torch.backends import cudnn
 from datetime import datetime
 from logger import create_logger
@@ -23,18 +23,19 @@ def main(config):
         if not os.path.exists(subfolder_path):
             os.makedirs(subfolder_path)
 
-    print_logger = create_logger(os.path.join(
-        config.output_path, 'train{}.log'.format(datetime.now().strftime("%Y%m%d-%H%M%S"))))
+    print_logger = create_logger(
+        os.path.join(config.output_path, 'train{}.log'.format(
+            datetime.now().strftime("%Y%m%d-%H%M%S"))))
     print_logger.info('============ Initialized logger ============')
     print_logger.info('\n'.join('%s: %s' % (k, str(v)) for k, v
                           in sorted(dict(vars(config)).items())))
 
     # Data loader
-    data_loader = get_loader(config.image_path, config.metadata_path, config.crop_size,
-                            config.image_size, config.batch_size, config.attrs, config.mode)
+    data_loaders = get_loaders(config.root, config.attrs, config.image_size,
+                              config.batch_size)
 
     # Solver
-    solver = Solver(data_loader, config)
+    solver = Solver(data_loaders, config)
 
     if config.mode == 'train':
         solver.train()
@@ -46,7 +47,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Model hyper-parameters
-    parser.add_argument('--attrs', type=str, default='*', help='attributes to train on')
+    parser.add_argument('--attrs', type=str, default='*',
+                        help='attributes to train on')
     parser.add_argument('--c_dim', type=int, default=43)
     parser.add_argument('--c2_dim', type=int, default=8)
     parser.add_argument('--crop_size', type=int, default=256)
@@ -85,7 +87,7 @@ if __name__ == '__main__':
 
     # Path
 
-    parser.add_argument('--image_path', type=str, default='./data/fashion/')
+    parser.add_argument('--root', type=str, default='./data/fashion/')
     parser.add_argument('--metadata_path', type=str, default='./data/fashion/img_attr.csv')
     parser.add_argument('--output_path', type=str, default='./stargan/fashion/outputs/')
 

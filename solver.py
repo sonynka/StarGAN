@@ -19,13 +19,13 @@ print_logger = getLogger()
 
 class Solver(object):
 
-    def __init__(self, data_loader, config):
+    def __init__(self, data_loaders, config):
         # Data loader
-        self.data_loader = data_loader
+        self.data_loaders = data_loaders
         self.attrs = config.attrs
 
         # Model hyper-parameters
-        self.c_dim = len(data_loader.dataset.selected_attrs)
+        self.c_dim = len(data_loaders['train'].dataset.selected_attrs)
         self.c2_dim = config.c2_dim
         self.image_size = config.image_size
         self.g_conv_dim = config.g_conv_dim
@@ -173,11 +173,13 @@ class Solver(object):
         """Train StarGAN within a single dataset."""
 
         # The number of iterations per epoch
-        iters_per_epoch = len(self.data_loader)
+        data_loader = self.data_loaders['train']
+
+        iters_per_epoch = len(data_loader)
 
         fixed_x = []
         real_c = []
-        for i, (images, labels) in enumerate(self.data_loader):
+        for i, (images, labels) in enumerate(data_loader):
             fixed_x.append(images)
             real_c.append(labels)
             if i == 0:
@@ -203,7 +205,7 @@ class Solver(object):
         # Start training
         start_time = time.time()
         for e in range(start, self.num_epochs):
-            for i, (real_x, real_label) in enumerate(self.data_loader):
+            for i, (real_x, real_label) in enumerate(data_loader):
                 
                 # Generat fake labels randomly (target domain labels)
                 rand_idx = torch.randperm(real_label.size(0))
@@ -232,7 +234,7 @@ class Solver(object):
                 if (i+1) % (self.log_step*10) == 0:
                     accuracies = self.compute_accuracy(out_cls, real_label)
                     log = ["{}: {:.2f}".format(attr, acc) for (attr, acc) in
-                           zip(self.data_loader.dataset.selected_attrs, accuracies.data.cpu().numpy())]
+                           zip(data_loader.dataset.selected_attrs, accuracies.data.cpu().numpy())]
                     print_logger.info('Discriminator Accuracy: {}'.format(log))
 
                 # Compute loss with fake images
@@ -349,7 +351,7 @@ class Solver(object):
         self.G.load_state_dict(torch.load(G_path))
         self.G.eval()
 
-        data_loader = self.data_loader
+        data_loader = self.data_loaders['test']
 
         for i, (real_x, org_c) in enumerate(data_loader):
             real_x = self.to_var(real_x, grad=False)

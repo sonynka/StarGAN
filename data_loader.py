@@ -32,6 +32,8 @@ class FashionDataset(Dataset):
             self.num_data = len(self.train_filenames)
         elif self.mode == 'test':
             self.num_data = len(self.test_filenames)
+        elif self.mode == 'valid':
+            self.num_data = len(self.valid_filenames)
 
     def preprocess(self):
         self.train_filenames = []
@@ -71,31 +73,96 @@ class FashionDataset(Dataset):
         return self.num_data
 
 
+def default_loader(path):
+    return Image.open(path).convert('RGB')
 
-def get_loader(image_path, metadata_path, crop_size, image_size, batch_size, attributes, mode='train'):
-    """Build and return data loader."""
 
-    if mode == 'train':
-        transform = transforms.Compose([
-            transforms.CenterCrop(crop_size),
+def default_flist_reader(flist):
+    """
+    flist format: impath label\nimpath label\n ...(same to caffe's filelist)
+    """
+    imlist = []
+    with open(flist, 'r') as rf:
+        for line in rf.readlines():
+            impath = line.strip()
+            imlist.append(impath)
+
+    return imlist
+
+
+class ImageLabelFilelist(Dataset):
+
+    def __init__(self, root, flist_path, labels_path, attributes, transform=None,
+                 flist_reader=default_flist_reader, loader=default_loader):
+
+        self.root = root
+        self.labels_path = labels_path
+        self.transform = transform
+        self.loader = loader
+
+        imlist = flist_reader(os.path.join(self.root, flist_path))
+
+        labels_df = self.process_labels(attributes, imlist)
+        self.imlist = labels_df[['img_path']].tolist()
+        self.class_names = labels_df.columns[1:]
+        self.labels = labels_df.iloc[:, 1:].as_matrix().tolist()
+
+
+    def process_labels(self, attributes, imlist):
+        """ Load the labels from CSV file, process, and return a dataframe """
+
+        labels_df = pd.read_csv(os.path.join(self.root, self.labels_path))
+        labels_cols = [
+            col for col in labels_df.columns
+            if any(attr in col for attr in attributes.split(','))]
+
+        labels_df = labels_df[['img_path'] + labels_cols]
+        labels_df = labels_df.loc[(labels_df[labels_cols] != 0).any(axis=1)]
+        labels_df = labels_df.loc[labels_df.img_path.isin(imlist)]
+        return labels_df
+
+    def __getitem__(self, index):
+
+        img = self.loader(os.path.join(self.root, self.imlist[index]))
+        label = self.labels[index]
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, torch.FloatTensor(label)
+
+    def __len__(self):
+        return len(self.imlist)
+
+
+
+def get_loaders(root, attributes, image_size, batch_size):
+    """Build and return data loaders for all data sets"""
+
+    modes = ['train', 'val', 'test']
+
+    data_transforms = \
+        transforms.Compose([
             transforms.Resize(image_size, interpolation=Image.ANTIALIAS),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    else:
-        transform = transforms.Compose([
-            transforms.CenterCrop(crop_size),
-            transforms.Scale(image_size, interpolation=Image.ANTIALIAS),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    dataset = FashionDataset(image_path, metadata_path, transform, attributes, mode)
 
-    shuffle = False
-    if mode == 'train':
-        shuffle = True
+    image_datasets = {
+        mode: ImageLabelFilelist(root,
+                                 mode + '_imgs.csv',
+                                 'img_attr.csv',
+                                 attributes,
+                                 transform=data_transforms)
+        for mode in modes
+    }
 
-    data_loader = DataLoader(dataset=dataset,
-                             batch_size=batch_size,
-                             shuffle=shuffle)
-    return data_loader
+    data_loaders = {
+        mode: DataLoader(image_datasets[mode],
+                         batch_size=batch_size,
+                         shuffle=False if mode == 'test' else True,
+                         num_workers=4)
+        for mode in modes
+    }
+
+    return data_loaders
