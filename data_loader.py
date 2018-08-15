@@ -10,6 +10,7 @@ from torchvision.datasets import ImageFolder
 from PIL import Image
 import pandas as pd
 from logging import getLogger
+import numpy as np
 
 logger = getLogger()
 
@@ -74,6 +75,13 @@ class FashionDataset(Dataset):
 def default_loader(path):
     return Image.open(path).convert('RGB')
 
+def lab_loader(path):
+    from skimage import io,color
+
+    rgb = io.imread(path)
+    lab = color.rgb2lab(rgb)
+
+    return(lab)
 
 def default_flist_reader(flist):
     """
@@ -112,7 +120,7 @@ class ImageLabelFilelist(Dataset):
         labels_df = pd.read_csv(os.path.join(self.root, self.labels_path))
         labels_cols = [
             col for col in labels_df.columns
-            if any(attr in col for attr in attributes.split(','))]
+            if any(col.startswith(attr) for attr in attributes.split(','))]
 
         labels_df = labels_df[['img_path'] + labels_cols]
         labels_df = labels_df.loc[(labels_df[labels_cols] != 0).any(axis=1)]
