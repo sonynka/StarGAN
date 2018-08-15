@@ -57,10 +57,10 @@ class Solver(object):
         self.test_model = config.test_model
 
         # Path
-        self.log_path = os.path.join(config.output_path, 'logs') 
-        self.sample_path = os.path.join(config.output_path, 'samples') 
-        self.model_save_path = os.path.join(config.output_path, 'models') 
-        self.result_path = os.path.join(config.output_path, 'results') 
+        self.log_path = os.path.join(config.output_path, 'logs', config.output_name)
+        self.sample_path = os.path.join(config.output_path, 'samples', config.output_name)
+        self.model_save_path = os.path.join(config.output_path, 'models', config.output_name)
+        self.result_path = os.path.join(config.output_path, 'results', config.output_name)
 
         # Step size
         self.log_step = config.log_step
@@ -252,6 +252,12 @@ class Solver(object):
                 d_loss.backward()
                 self.d_optimizer.step()
 
+                loss = {}
+                loss['D/loss_real'] = d_loss_real.data.item()
+                loss['D/loss_fake'] = d_loss_fake.data.item()
+                loss['D/loss_cls'] = d_loss_cls.data.item()
+                loss['D/loss'] = d_loss.data.item()
+
                 # Compute gradient penalty
                 alpha = torch.rand(real_x.size(0), 1, 1, 1).cuda().expand_as(real_x)
                 interpolated = Variable(alpha * real_x.data + (1 - alpha) * fake_x.data, requires_grad=True)
@@ -275,10 +281,6 @@ class Solver(object):
                 self.d_optimizer.step()
 
                 # Logging
-                loss = {}
-                loss['D/loss_real'] = d_loss_real.data.item()
-                loss['D/loss_fake'] = d_loss_fake.data.item()
-                loss['D/loss_cls'] = d_loss_cls.data.item()
                 loss['D/loss_gp'] = d_loss_gp.data.item()
 
                 # ================== Train G ================== #
@@ -306,6 +308,7 @@ class Solver(object):
                     loss['G/loss_fake'] = g_loss_fake.data.item()
                     loss['G/loss_rec'] = g_loss_rec.data.item()
                     loss['G/loss_cls'] = g_loss_cls.data.item()
+                    loss['G/loss'] = g_loss.data.item()
 
                 # Print out log info
                 if (i+1) % self.log_step == 0:
@@ -334,7 +337,7 @@ class Solver(object):
                     # fake_images = torch.cat(fake_image_list, dim=3)
                     # save_image(self.denorm(fake_images.data.cpu()),
                     #     os.path.join(self.sample_path, '{}_{}_fake.png'.format(e+1, i+1)),nrow=1, padding=0)
-                    print_logger.info('Translated images and saved into {}..!'.format(self.sample_path))
+                    # print_logger.info('Translated images and saved into {}..!'.format(self.sample_path))
 
                     if self.use_tensorboard:
                         tb_imgs = [t.unsqueeze(0) for t in fake_image_list]

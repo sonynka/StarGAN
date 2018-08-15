@@ -19,13 +19,13 @@ def main(config):
         os.makedirs(config.output_path)
     subfolders = ['logs', 'samples', 'models', 'results']
     for subfolder in subfolders:
-        subfolder_path = os.path.join(config.output_path, subfolder)
+        subfolder_path = os.path.join(config.output_path, subfolder, config.output_name)
         if not os.path.exists(subfolder_path):
             os.makedirs(subfolder_path)
 
     print_logger = create_logger(
-        os.path.join(config.output_path, 'train{}.log'.format(
-            datetime.now().strftime("%Y%m%d-%H%M%S"))))
+        os.path.join(config.output_path, 'logs', config.output_name,
+                     'train{}.log'.format(datetime.now().strftime("%Y%m%d-%H%M%S"))))
     print_logger.info('============ Initialized logger ============')
     print_logger.info('\n'.join('%s: %s' % (k, str(v)) for k, v
                           in sorted(dict(vars(config)).items())))
@@ -89,7 +89,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--root', type=str, default='./data/fashion/')
     parser.add_argument('--metadata_path', type=str, default='./data/fashion/img_attr.csv')
-    parser.add_argument('--output_path', type=str, default='./stargan/fashion/outputs/')
+    parser.add_argument('--output_path', type=str, default='./stargan/outputs/')
+    parser.add_argument('--output_name', type=str, default='test')
     parser.add_argument('--num_val_imgs', type=int, default=10)
 
     # Step size
