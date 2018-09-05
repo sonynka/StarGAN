@@ -81,7 +81,7 @@ def lab_loader(path):
     rgb = io.imread(path)
     lab = color.rgb2lab(rgb)
 
-    return(lab)
+    return lab
 
 def default_flist_reader(flist):
     """
@@ -98,8 +98,9 @@ def default_flist_reader(flist):
 
 class ImageLabelFilelist(Dataset):
 
-    def __init__(self, root, flist_path, labels_path, attributes, transform=None,
-                 flist_reader=default_flist_reader, loader=default_loader):
+    def __init__(self, root, flist_path, labels_path, attributes, categories=None,
+                 transform=None, flist_reader=default_flist_reader,
+                 loader=default_loader):
 
         self.root = root
         self.labels_path = labels_path
@@ -107,6 +108,9 @@ class ImageLabelFilelist(Dataset):
         self.loader = loader
 
         imlist = flist_reader(os.path.join(self.root, flist_path))
+        if categories is not None:
+            catlist = categories.split(',')
+            imlist = [im for im in imlist if any(cat in im for cat in catlist)]
 
         labels_df = self.process_labels(attributes, imlist)
         self.imlist = labels_df.img_path.tolist()
@@ -118,13 +122,16 @@ class ImageLabelFilelist(Dataset):
         """ Load the labels from CSV file, process, and return a dataframe """
 
         labels_df = pd.read_csv(os.path.join(self.root, self.labels_path))
+
+        attr_list = attributes.split(',')
         labels_cols = [
             col for col in labels_df.columns
-            if any(col.startswith(attr) for attr in attributes.split(','))]
+            if any(col.startswith(attr) for attr in attr_list)]
 
         labels_df = labels_df[['img_path'] + labels_cols]
         labels_df = labels_df.loc[(labels_df[labels_cols] != 0).any(axis=1)]
         labels_df = labels_df.loc[labels_df.img_path.isin(imlist)]
+
         return labels_df
 
     def __getitem__(self, index):
@@ -142,7 +149,7 @@ class ImageLabelFilelist(Dataset):
 
 
 
-def get_loaders(root, attributes, image_size, batch_size):
+def get_loaders(root, attributes, categories, image_size, batch_size):
     """Build and return data loaders for all data sets"""
 
     modes = ['train', 'val', 'test']
@@ -159,6 +166,7 @@ def get_loaders(root, attributes, image_size, batch_size):
                                  mode + '_imgs.csv',
                                  'img_attr.csv',
                                  attributes,
+                                 categories=None if categories == '*' else categories,
                                  transform=data_transforms)
         for mode in modes
     }

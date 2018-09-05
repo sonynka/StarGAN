@@ -31,8 +31,8 @@ def main(config):
                           in sorted(dict(vars(config)).items())))
 
     # Data loader
-    data_loaders = get_loaders(config.root, config.attrs, config.image_size,
-                              config.batch_size)
+    data_loaders = get_loaders(config.root, config.attrs, config.categories,
+                               config.image_size, config.batch_size)
 
     # Solver
     solver = Solver(data_loaders, config)
@@ -49,6 +49,10 @@ if __name__ == '__main__':
     # Model hyper-parameters
     parser.add_argument('--attrs', type=str, default='*',
                         help='attributes to train on')
+    parser.add_argument('--categories', type=str, default='*',
+                        help='clothing categories to train on')
+    # TODO: handle * default value
+
     parser.add_argument('--c_dim', type=int, default=43)
     parser.add_argument('--c2_dim', type=int, default=8)
     parser.add_argument('--crop_size', type=int, default=256)
