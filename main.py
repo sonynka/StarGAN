@@ -100,7 +100,7 @@ if __name__ == '__main__':
     # Step size
     parser.add_argument('--log_step', type=int, default=50)
     parser.add_argument('--sample_step', type=int, default=50)
-    parser.add_argument('--model_save_step', type=int, default=100)
+    parser.add_argument('--model_save_step', type=int, default=1000)
 
     config = parser.parse_args()
     print(config)

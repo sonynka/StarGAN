@@ -11,6 +11,7 @@ from torchvision.utils import save_image
 from torchvision import transforms
 from model import Generator
 from model import Discriminator
+from model import UnetGenerator
 from PIL import Image
 from logging import getLogger
 
@@ -80,6 +81,7 @@ class Solver(object):
 
     def build_model(self):
 
+        # self.G = UnetGenerator(3+self.c_dim)
         self.G = Generator(self.g_conv_dim, self.c_dim, self.g_repeat_num, self.image_size)
         self.D = Discriminator(self.image_size, self.d_conv_dim, self.c_dim, self.d_repeat_num)
 
@@ -295,11 +297,13 @@ class Solver(object):
                     g_loss_fake = - torch.mean(out_src)
                     g_loss_rec = torch.mean(torch.abs(real_x - rec_x))
 
+                    g_loss_l1 = torch.mean(torch.abs(real_x - fake_x))
+
                     g_loss_cls = F.binary_cross_entropy_with_logits(
                         out_cls, fake_label, size_average=False) / fake_x.size(0)
 
                     # Backward + Optimize
-                    g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls
+                    g_loss = g_loss_fake + self.lambda_rec * g_loss_rec + self.lambda_cls * g_loss_cls  #+ g_loss_l1 * self.lambda_rec
                     self.reset_grad()
                     g_loss.backward()
                     self.g_optimizer.step()
@@ -308,6 +312,7 @@ class Solver(object):
                     loss['G/loss_fake'] = g_loss_fake.data.item()
                     loss['G/loss_rec'] = g_loss_rec.data.item()
                     loss['G/loss_cls'] = g_loss_cls.data.item()
+                    # loss['G/loss_l1'] = g_loss_l1.data.item()
                     loss['G/loss'] = g_loss.data.item()
 
                 # Print out log info
